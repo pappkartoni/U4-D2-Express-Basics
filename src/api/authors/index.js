@@ -20,10 +20,16 @@ authorsRouter.get("/:uuid", (req, res) => {
 
 authorsRouter.post("/", (req, res) => {
     const authors = JSON.parse(fs.readFileSync(authorsPath))
-    const newAuthor = {...req.body, uuid: uuidv4()}
-    authors.push(newAuthor)
-    fs.writeFileSync(authorsPath, JSON.stringify(authors))
-    res.status(201).send({fullName: newAuthor.name + " " + newAuthor.surname, uuid: newAuthor.uuid})
+    const unavailable = authors.some(a => a.email === req.body.email)
+
+    if (!unavailable) {
+        const newAuthor = {...req.body, uuid: uuidv4()}
+        authors.push(newAuthor)
+        fs.writeFileSync(authorsPath, JSON.stringify(authors))
+        res.status(201).send({fullName: newAuthor.name + " " + newAuthor.surname, uuid: newAuthor.uuid})
+    } else {
+        res.status(400).send("Email already in use")
+    }
 })
 
 authorsRouter.put("/:uuid", (req, res) => {
