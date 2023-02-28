@@ -5,7 +5,6 @@ import {dirname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 
 const authorsRouter = Express.Router()
-
 const authorsPath = join(dirname(fileURLToPath(import.meta.url)), "authors.json")
 
 authorsRouter.get("/", (req, res) => {
