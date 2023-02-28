@@ -44,8 +44,8 @@ authorsRouter.delete("/:uuid", (req, res) => {
 
 authorsRouter.post("/checkEmail", (req, res) => {
     const authors = JSON.parse(fs.readFileSync(authorsPath))
-    //todo
+    const unavailable = authors.some(a => a.email === req.body.email)
+    res.send({unavailable: unavailable})
 })
-
 
 export default authorsRouter
