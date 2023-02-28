@@ -1,8 +1,7 @@
 {
-  "name": "y",
+  "name": "express-basics",
   "version": "1.0.0",
   "description": "\"backend first week project\"",
-  "main": "y",
   "type": "module",
   "scripts": {
     "test": "test",
@@ -10,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "n"
+    "url": "https://github.com/pappkartoni/U4-D2-Express-Basics"
   },
   "author": "pappkartoni",
   "license": "ISC",
