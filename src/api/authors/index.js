@@ -3,51 +3,101 @@ import fs from "fs"
 import {fileURLToPath} from "url"
 import {dirname, join} from "path"
 import {v4 as uuidv4} from "uuid"
+import createHttpError from "http-errors"
+import { checkAuthorSchema, triggerBadRequest } from "../validate.js"
 
 const authorsRouter = Express.Router()
 const authorsPath = join(dirname(fileURLToPath(import.meta.url)), "authors.json")
 
-authorsRouter.get("/", (req, res) => {
-    const authors = JSON.parse(fs.readFileSync(authorsPath))
-    res.send(authors)
-})
+const getAuthors = () => JSON.parse(fs.readFileSync(authorsPath))
+const setAuthors = authors => fs.writeFileSync(authorsPath, JSON.stringify(authors))
 
-authorsRouter.get("/:uuid", (req, res) => {
-    const authors = JSON.parse(fs.readFileSync(authorsPath))
-    const author = authors.find(a => a.uuid === req.params.uuid)
-    res.send(author)
-})
-
-authorsRouter.post("/", (req, res) => {
-    const authors = JSON.parse(fs.readFileSync(authorsPath))
-    const unavailable = authors.some(a => a.email === req.body.email)
-
-    if (!unavailable) {
+authorsRouter.post("/", checkAuthorSchema, triggerBadRequest, (req, res, next) => {
+    try {
         const newAuthor = {...req.body, uuid: uuidv4()}
-        authors.push(newAuthor)
-        fs.writeFileSync(authorsPath, JSON.stringify(authors))
-        res.status(201).send({fullName: newAuthor.name + " " + newAuthor.surname, uuid: newAuthor.uuid})
-    } else {
-        res.status(400).send("Email already in use")
+        const authors = getAuthors()
+        const unavailable = authors.some(a => a.email === req.body.email)
+        if (!unavailable) {
+            authors.push(newAuthor)
+            setAuthors(authors)
+
+            res.status(201).send({name: newAuthor.name + " " + newAuthor.surname, avatar: newAuthor.avatar, uuid: newAuthor.uuid})
+        } else {
+            next(createHttpError(400, `Email ${req.body.email} is already in use`))
+        }
+    } catch (error) {
+        next(error)
+    }
+
+})
+
+authorsRouter.get("/", (req, res, next) => {
+    try {
+        const authors = getAuthors()
+        res.send(authors)
+    } catch (error) {
+        next(error)
     }
 })
 
-authorsRouter.put("/:uuid", (req, res) => {
-    const authors = JSON.parse(fs.readFileSync(authorsPath))
-    const i = authors.findIndex(a => a.uuid === req.params.uuid)
-    const updated = {...authors[i], ...req.body}
-    authors[i] = updated
-    fs.writeFileSync(authorsPath, JSON.stringify(authors))
-    res.send(updated)
+authorsRouter.get("/:uuid", (req, res, next) => {
+    try {
+        const authors = getAuthors()
+        const foundAuthor = authors.find(a => a.uuid === req.params.uuid)
+        if (foundAuthor) {
+            res.send(foundAuthor)
+        } else {
+            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+        }
+        
+    } catch (error) {
+        next(error)
+    }
 })
 
-authorsRouter.delete("/:uuid", (req, res) => {
-    const authors = JSON.parse(fs.readFileSync(authorsPath))
-    fs.writeFileSync(authorsPath, JSON.stringify(authors.filter(a => a.uuid !== req.params.uuid)))
-    res.status(204).send()
+authorsRouter.put("/:uuid", checkAuthorSchema, triggerBadRequest, (req, res, next) => {
+    try {
+        const authors = getAuthors()
+        const i = authors.findIndex(a => a.uuid === req.params.uuid)
+        if (i !== -1) {
+            const updated = {...authors[i], ...req.body}
+            authors[i] = updated
+            setAuthors(authors)
+            res.send(updated)
+        } else {
+            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+        }
+    } catch (error) {
+        next(error)
+    }
 })
 
-authorsRouter.post("/checkEmail", (req, res) => {
+authorsRouter.delete("/:uuid", (req, res, next) => {
+    try {
+        const authors = getAuthors()
+        const remaining = authors.filter(a => a.uuid !== req.params.uuid)
+        if (authors.length !== remaining.length) {
+            res.status(204).send()
+        } else {
+            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.post("/checkEmail", (req, res, next) => {
+    try {
+        const authors = getAuthors()
+        if (req.body && req.body.email) {
+            const unavailable = authors.some(a => a.email === req.body.email)
+            res.send({unavailable: unavailable})
+        } else {
+            next(createHttpError(400, "No email to check provided"))
+        }
+    } catch (error) {
+        next(error)
+    }
     const authors = JSON.parse(fs.readFileSync(authorsPath))
     const unavailable = authors.some(a => a.email === req.body.email)
     res.send({unavailable: unavailable})
