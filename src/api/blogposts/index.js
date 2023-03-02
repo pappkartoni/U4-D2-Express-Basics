@@ -5,7 +5,7 @@ import {dirname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 import createHttpError from "http-errors"
 import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
-import { getBlogposts, setBlogposts } from "../../lib/tools.js";
+import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
 import multer from "multer";
 
 const blogpostsRouter = Express.Router()
@@ -89,7 +89,7 @@ blogpostsRouter.post("/:uuid/upload", multer().single("cover"), async (req, res,
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
             const filename = req.params.uuid + extname(req.file.originalname)
-            await saveAuthorImage(filename, req.file.buffer)
+            await saveBlogpostImage(filename, req.file.buffer)
             blogposts[i] = {...blogposts[i], cover: `http://localhost:3420/img/blogposts/${filename}`}
             await setBlogposts(blogposts)
             res.send({message: `cover uploaded for ${req.params.uuid}`})

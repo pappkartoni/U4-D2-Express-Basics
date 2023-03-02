@@ -22,6 +22,7 @@ const authorSchema = {
     },
     dateOfBirth: {
         in: ["body"],
+        optional: { options: { nullable: true } },
         isString: {
           errorMessage: "dob must be Date",
         },
@@ -51,6 +52,7 @@ const blogpostSchema = {
     },
     cover: {
         in: ["body"],
+        optional: { options: { nullable: true } },
         isURL: {
           errorMessage: "cover must be valid url to image",
         },
