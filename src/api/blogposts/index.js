@@ -1,7 +1,7 @@
 import Express from "express";
 import fs from "fs"
 import {fileURLToPath} from "url"
-import {dirname, join} from "path"
+import {dirname, extname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 import createHttpError from "http-errors"
 import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
@@ -118,6 +118,7 @@ blogpostsRouter.get("/:uuid/comments", async (req, res, next) => {
 blogpostsRouter.post("/:uuid/comments", checkCommentSchema,  async (req, res, next) => {
     try {
         const newComment = {...req.body, uuid: uuidv4(), createdAt: new Date(), updatedAt: new Date()}
+        console.log(req.body, newComment)
         const blogposts = await getBlogposts()
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
