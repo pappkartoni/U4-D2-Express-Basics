@@ -118,7 +118,6 @@ blogpostsRouter.get("/:uuid/comments", async (req, res, next) => {
 blogpostsRouter.post("/:uuid/comments", checkCommentSchema,  async (req, res, next) => {
     try {
         const newComment = {...req.body, uuid: uuidv4(), createdAt: new Date(), updatedAt: new Date()}
-        console.log(req.body, newComment)
         const blogposts = await getBlogposts()
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
@@ -126,6 +125,52 @@ blogpostsRouter.post("/:uuid/comments", checkCommentSchema,  async (req, res, ne
             blogposts[i] = updated
             await setBlogposts(blogposts)
             res.status(201).send({id: req.params.uuid, newComment: newComment})
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+blogpostsRouter.put("/:uuid/comments/:commentId", checkCommentSchema, async (req, res, next) => {
+    try {
+        const blogposts = await getBlogposts()
+        const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
+        if (i !== -1) {
+            const comments = blogposts[i].comments
+            const j = comments.findIndex(c => c.uuid === req.params.commentId)
+            if (j !== -1) {
+                const updatedComment = {...comments[j], ...req.body, updatedAt: new Date()}
+                comments[j] = updatedComment
+                blogposts[i].comments = comments
+                await setBlogposts(blogposts)
+                res.send(updatedComment)
+            } else {
+                next(createHttpError(404, `No comment with id ${req.params.commentId}`))
+            }
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+blogpostsRouter.delete("/:uuid/comments/:commentId", async (req, res, next) => {
+    try {
+        const blogposts = await getBlogposts()
+        const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
+        if (i !== -1) {
+            const comments = blogposts[i].comments
+            const remaining = comments.filter(c => c.uuid !== req.params.commentId)
+            if (comments.length !== remaining.length) {
+                blogposts[i].comments = remaining
+                await setBlogposts(blogposts)
+                res.status(204).send()
+            } else {
+                next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+            }
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
         }
