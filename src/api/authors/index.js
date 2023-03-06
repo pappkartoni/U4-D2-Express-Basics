@@ -118,9 +118,9 @@ authorsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) =
         const i = authors.findIndex(a => a.uuid === req.params.uuid)
         if (i !== -1) {
 /*             const filename = req.params.uuid + extname(req.file.originalname)
-            await saveAuthorImage(filename, req.file.buffer)
-            authors[i] = {...authors[i], avatar: `http://localhost:3420/img/authors/${filename}`}
-            await setAuthors(authors) */
+            await saveAuthorImage(filename, req.file.buffer) */
+            authors[i] = {...authors[i], avatar: req.file.path}
+            await setAuthors(authors)
             res.send({message: `avatar uploaded for ${req.params.uuid}`})
         } else {
             next(createHttpError(404, `No author with id ${req.params.uuid}`))

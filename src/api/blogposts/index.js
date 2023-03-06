@@ -101,9 +101,9 @@ blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next)
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
 /*             const filename = req.params.uuid + extname(req.file.originalname)
-            await saveBlogpostImage(filename, req.file.buffer)
-            blogposts[i] = {...blogposts[i], cover: `http://localhost:3420/img/blogposts/${filename}`}
-            await setBlogposts(blogposts) */
+            await saveBlogpostImage(filename, req.file.buffer) */
+            blogposts[i] = {...blogposts[i], cover: req.file.path}
+            await setBlogposts(blogposts)
             res.send({message: `cover uploaded for ${req.params.uuid}`})
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
