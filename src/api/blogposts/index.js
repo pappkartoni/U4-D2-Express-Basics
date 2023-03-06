@@ -3,6 +3,7 @@ import fs from "fs"
 import {fileURLToPath} from "url"
 import {dirname, extname, join} from "path"
 import {v4 as uuidv4} from "uuid"
+import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
 import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
 import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
