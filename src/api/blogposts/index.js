@@ -7,8 +7,19 @@ import createHttpError from "http-errors"
 import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
 import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
 import multer from "multer";
+import { CloudinaryStorage } from "multer-storage-cloudinary"
+
 
 const blogpostsRouter = Express.Router()
+
+const cloudinaryUploader = multer({
+    storage: new CloudinaryStorage({
+        cloudinary,
+        params: {
+            folder: "u4d6/blogposts",
+        },
+    }),
+}).single("cover")
 
 blogpostsRouter.post("/", checkBlogpostSchema, triggerBadRequest, async (req, res, next) => {
     try {
@@ -83,15 +94,15 @@ blogpostsRouter.delete("/:uuid", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.post("/:uuid/upload", multer().single("cover"), async (req, res, next) => {
+blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) => {
     try {
         const blogposts = await getBlogposts()
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
-            const filename = req.params.uuid + extname(req.file.originalname)
+/*             const filename = req.params.uuid + extname(req.file.originalname)
             await saveBlogpostImage(filename, req.file.buffer)
             blogposts[i] = {...blogposts[i], cover: `http://localhost:3420/img/blogposts/${filename}`}
-            await setBlogposts(blogposts)
+            await setBlogposts(blogposts) */
             res.send({message: `cover uploaded for ${req.params.uuid}`})
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))

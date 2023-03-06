@@ -5,10 +5,20 @@ import {dirname, extname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 import createHttpError from "http-errors"
 import multer from "multer"
+import { CloudinaryStorage } from "multer-storage-cloudinary"
 import { checkAuthorSchema, triggerBadRequest } from "../validate.js"
 import { getAuthors, saveAuthorImage, setAuthors } from "../../lib/tools.js"
 
 const authorsRouter = Express.Router()
+
+const cloudinaryUploader = multer({
+    storage: new CloudinaryStorage({
+        cloudinary,
+        params: {
+            folder: "u4d6/authors",
+        },
+    }),
+}).single("avatar")
 
 authorsRouter.post("/", checkAuthorSchema, triggerBadRequest, async (req, res, next) => {
     try {
@@ -101,15 +111,15 @@ authorsRouter.post("/checkEmail", async (req, res, next) => {
     res.send({unavailable: unavailable})
 })
 
-authorsRouter.post("/:uuid/upload", multer().single("avatar"), async (req, res, next) => {
+authorsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) => {
     try {
         const authors = await getAuthors()
         const i = authors.findIndex(a => a.uuid === req.params.uuid)
         if (i !== -1) {
-            const filename = req.params.uuid + extname(req.file.originalname)
+/*             const filename = req.params.uuid + extname(req.file.originalname)
             await saveAuthorImage(filename, req.file.buffer)
             authors[i] = {...authors[i], avatar: `http://localhost:3420/img/authors/${filename}`}
-            await setAuthors(authors)
+            await setAuthors(authors) */
             res.send({message: `avatar uploaded for ${req.params.uuid}`})
         } else {
             next(createHttpError(404, `No author with id ${req.params.uuid}`))
