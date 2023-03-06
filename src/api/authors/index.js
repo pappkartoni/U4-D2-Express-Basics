@@ -117,8 +117,6 @@ authorsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) =
         const authors = await getAuthors()
         const i = authors.findIndex(a => a.uuid === req.params.uuid)
         if (i !== -1) {
-/*             const filename = req.params.uuid + extname(req.file.originalname)
-            await saveAuthorImage(filename, req.file.buffer) */
             authors[i] = {...authors[i], avatar: req.file.path}
             await setAuthors(authors)
             res.send({message: `avatar uploaded for ${req.params.uuid}`})

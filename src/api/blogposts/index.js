@@ -100,8 +100,7 @@ blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next)
         const blogposts = await getBlogposts()
         const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
         if (i !== -1) {
-/*             const filename = req.params.uuid + extname(req.file.originalname)
-            await saveBlogpostImage(filename, req.file.buffer) */
+            console.log("FILE", req.file)
             blogposts[i] = {...blogposts[i], cover: req.file.path}
             await setBlogposts(blogposts)
             res.send({message: `cover uploaded for ${req.params.uuid}`})
