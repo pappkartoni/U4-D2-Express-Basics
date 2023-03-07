@@ -5,10 +5,13 @@ import {dirname, extname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
-import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
-import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
+import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
+import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
+import { getPDFBlogpost } from "../../lib/tools.js";
+import { pipeline } from "stream";
+
 
 
 const blogpostsRouter = Express.Router()
@@ -104,6 +107,26 @@ blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next)
             blogposts[i] = {...blogposts[i], cover: req.file.path}
             await setBlogposts(blogposts)
             res.send({message: `cover uploaded for ${req.params.uuid}`})
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+blogpostsRouter.get("/:uuid/pdf", async (req, res, next) => {
+    try {
+        res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.uuid}.pdf`)
+        const blogposts = await getBlogposts()
+        const foundBlogpost = blogposts.find(b => b.uuid === req.params.uuid)
+        if (foundBlogpost) {
+            const source = await getPDFBlogpost(foundBlogpost)
+            const destination = res //why
+
+            pipeline(source, destination, err => {
+                if (err) console.log(err)
+            })
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
         }
