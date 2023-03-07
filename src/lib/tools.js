@@ -55,6 +55,16 @@ export const getPDFBlogpost = async bp => {
         },
         {text: bp.title,
         style: "header"},
+        {
+        table: {
+            body: [[{image: `data:image/jpeg;base64,${await imageToBase64(bp.author.avatar)}`,
+            width: 30
+            },
+            {text: bp.author.name}]],
+        },
+        layout: "noBorders",
+        margin: [0, 10]
+        },
         {text: convert(bp.content, {selectors: [{selector: "strong", format: "blockquote"}]})}, //can't make it bold this way
 /*         ...pretty, */
         ],
