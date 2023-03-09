@@ -8,7 +8,9 @@ import createHttpError from "http-errors"
 import multer from "multer"
 import { CloudinaryStorage } from "multer-storage-cloudinary"
 import { checkAuthorSchema, triggerBadRequest } from "../validate.js"
-import { getAuthors, saveAuthorImage, setAuthors } from "../../lib/tools.js"
+import { getAuthors, getAuthorsJSONReadableStream, saveAuthorImage, setAuthors } from "../../lib/tools.js"
+import { Transform } from "@json2csv/node";
+import { pipeline } from "stream";
 
 const authorsRouter = Express.Router()
 
@@ -123,6 +125,22 @@ authorsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) =
         } else {
             next(createHttpError(404, `No author with id ${req.params.uuid}`))
         }
+    } catch (error) {
+        next(error)
+    }
+})
+
+
+authorsRouter.get("/csv/download", async (req, res, next) => {
+    try {
+        res.setHeader("Content-Disposition", `attachment; filename=authors.csv`)
+        const source = getAuthorsJSONReadableStream()
+        const transform = new Transform({fields: ["uuid", "name", "surname", "email", "dateOfBirth", "avatar"]})
+        const destination = res
+
+        pipeline(source, transform, destination, err => {
+            if (err) console.log(err)
+        })
     } catch (error) {
         next(error)
     }

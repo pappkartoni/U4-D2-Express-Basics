@@ -3,10 +3,13 @@ import {fileURLToPath} from "url"
 import { dirname, join } from "path"
 import PdfPrinter from "pdfmake"
 import imageToBase64 from "image-to-base64"
-import HTML from "html-parse-stringify"
 import { convert } from "html-to-text"
+import { createWriteStream } from "fs"
+import { promisify } from "util"
+import sgMail from "@sendgrid/mail"
+import { pipeline } from "stream"
 
-const { readJSON, writeJSON, writeFile } = fs
+const { readJSON, writeJSON, writeFile, createReadStream } = fs
 
 const folderPath = join(dirname(fileURLToPath(import.meta.url)), "../data")
 const publicFolderPath = join(process.cwd(), "./public/img")
@@ -15,16 +18,19 @@ const blogpostImagePath = join(publicFolderPath, "./blogposts")
 const authorsPath = join(folderPath, "authors.json")
 const blogsPath = join(folderPath, "blogposts.json")
 
+sgMail.setApiKey(process.env.SENDGRID_KEY)
 
 export const getAuthors = () => readJSON(authorsPath)
 export const setAuthors = authors => writeJSON(authorsPath, authors)
-
 
 export const getBlogposts = () => readJSON(blogsPath)
 export const setBlogposts = blogposts => writeJSON(blogsPath, blogposts)
 
 export const saveAuthorImage = (fileName, fileContent) => writeFile(join(authorImagePath, fileName), fileContent)
 export const saveBlogpostImage = (fileName, fileContent) => writeFile(join(blogpostImagePath, fileName), fileContent)
+
+export const getAuthorsJSONReadableStream = () => createReadStream(authorsPath)
+export const getPDFWritableStream = fileName => createWriteStream(join(folderPath, fileName))
 
 export const getPDFBlogpost = async bp => {
     const fonts = {
@@ -38,16 +44,8 @@ export const getPDFBlogpost = async bp => {
     const printer = new PdfPrinter(fonts)
 
     const base64Data = await imageToBase64(bp.cover)
-/*     const splitHtml = HTML.parse(bp.content)
-    const pretty = splitHtml.map(el => {
-        return {
-            text: el.children[0].content ? el.children.map(c => c.content).join() : el.children.map(c => c.children[0].content).join(), 
-            style: el.namem
-        }
-    }) */ //this was going nowhere
 
-    console.log(convert(bp.content));
-
+    // TODO: Try pdfkit
     const docDefinition = {
         content: [
             {image: `data:image/jpeg;base64,${base64Data}`,
@@ -66,7 +64,6 @@ export const getPDFBlogpost = async bp => {
         margin: [0, 10]
         },
         {text: convert(bp.content, {selectors: [{selector: "strong", format: "blockquote"}]})}, //can't make it bold this way
-/*         ...pretty, */
         ],
         styles: {
             header: {
@@ -80,8 +77,43 @@ export const getPDFBlogpost = async bp => {
         }
     }
 
-    const pdfReadableStream = printer.createPdfKitDocument(docDefinition, [])
+    const pdfReadableStream = printer.createPdfKitDocument(docDefinition)
     pdfReadableStream.end()
 
     return pdfReadableStream
+}
+
+export const asyncPDFGen = async (blogpost) => {
+    const src = await getPDFBlogpost(blogpost)
+    const dest = getPDFWritableStream(`bp-${blogpost.uuid}.pdf`)
+    const promisedBasedPipeline = promisify(pipeline)
+
+    await promisedBasedPipeline(src, dest)
+}
+
+export const sendConfirmationEmail = async (blogpost, recipient) => {
+    await asyncPDFGen(blogpost)
+    const pdfToSend = join(folderPath, `bp-${blogpost.uuid}.pdf`)
+    const pdfString = fs.readFileSync(pdfToSend).toString("base64")
+
+    const msg = {
+        to: recipient,
+        from: process.env.SENDER_EMAIL,
+        subject: `Your new Blogpost "${blogpost.title}"`,
+        text: "Here is what you wrote:",
+        html: blogpost.content,
+        attachments: [
+            {
+              content: pdfString,
+              filename: "blogpost.pdf",
+              type: "application/pdf",
+              disposition: "attachment"
+            }
+          ]
+    }
+    try {
+        await sgMail.send(msg)
+    } catch (error) {
+        console.log(error)
+    }
 }

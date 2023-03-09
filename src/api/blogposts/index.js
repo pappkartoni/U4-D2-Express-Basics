@@ -8,9 +8,10 @@ import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
 import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
-import { getBlogposts, setBlogposts, saveBlogpostImage} from "../../lib/tools.js";
+import { getBlogposts, setBlogposts, saveBlogpostImage, getAuthorsJSONReadableStream, sendConfirmationEmail } from "../../lib/tools.js";
 import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
+import { Transform } from "@json2csv/node";
 
 
 
@@ -31,6 +32,7 @@ blogpostsRouter.post("/", checkBlogpostSchema, triggerBadRequest, async (req, re
         const blogposts = await getBlogposts()
         blogposts.push(newBlogpost)
         await setBlogposts(blogposts)
+        await sendConfirmationEmail(newBlogpost, newBlogpost.author.email)
 
         res.status(201).send({uuid: newBlogpost.uuid})
     } catch (error) {
