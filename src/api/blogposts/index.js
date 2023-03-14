@@ -41,11 +41,12 @@ blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
 
 blogpostsRouter.get("/", async (req, res, next) => {
     try {
-        const blogposts = await BlogpostsModel.find()
-        if (req.query && req.query.title) {
+        if (req.query && req.query.category) {
             //const filtered = blogposts.filter(b => b.title.toLowerCase().includes(req.query.title.toLowerCase()))
-            res.send(blogposts)
+            const filtered = await BlogpostsModel.find({category: req.query.category})
+            res.send(filtered)
         } else {
+            const blogposts = await BlogpostsModel.find()
             res.send(blogposts)
         }
     } catch (error) {
