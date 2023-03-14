@@ -7,7 +7,7 @@ const blogpostSchema = new Schema(
         category: { type: String, required: true},
         title: { type: String, required: true},
         cover: { type: String, required: true},
-        readTime:{
+        readTime: {
             value: {type: Number, required: true},
             unit: {
                 type: String,
@@ -19,6 +19,11 @@ const blogpostSchema = new Schema(
                   message: "Unit must be one of 'seconds', 'minutes', or 'hours'",
                 },
               },
+        },
+        author: {
+            name: {type: String},
+            avatar: {type: String},
+            email: {type: String, required: true}
         },
         content: { type: String, required: true},
 

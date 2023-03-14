@@ -59,7 +59,7 @@ blogpostsRouter.get("/:bpId", async (req, res, next) => {
         if (foundBlogpost) {
             res.send(foundBlogpost)
         } else {
-            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
     } catch (error) {
         next(error)
@@ -77,7 +77,7 @@ blogpostsRouter.put("/:bpId", triggerBadRequest, async (req, res, next) => {
         if (updatedBlogpost) {
             res.send(updatedBlogpost)
         } else {
-            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
     } catch (error) {
         next(error)
@@ -90,37 +90,18 @@ blogpostsRouter.delete("/:bpId", async (req, res, next) => {
         if (deletedBlogpost) {
             res.status(204).send()
         } else {
-            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
     } catch (error) {
         next(error)
     }
 })
 
-// this is not working yet
-
-blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) => {
-    try {
-        const blogposts = await getBlogposts()
-        const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
-        if (i !== -1) {
-            console.log("FILE", req.file)
-            blogposts[i] = {...blogposts[i], cover: req.file.path}
-            await setBlogposts(blogposts)
-            res.send({message: `cover uploaded for ${req.params.uuid}`})
-        } else {
-            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
-        }
-    } catch (error) {
-        next(error)
-    }
-})
-
-blogpostsRouter.get("/:uuid/pdf", async (req, res, next) => {
+blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.uuid}.pdf`)
         const blogposts = await getBlogposts()
-        const foundBlogpost = blogposts.find(b => b.uuid === req.params.uuid)
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
         if (foundBlogpost) {
             const source = await getPDFBlogpost(foundBlogpost)
             const destination = res //why
@@ -129,12 +110,32 @@ blogpostsRouter.get("/:uuid/pdf", async (req, res, next) => {
                 if (err) console.log(err)
             })
         } else {
-            next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
     } catch (error) {
         next(error)
     }
 })
+
+// vvvvvvv this is not working yet vvvvvvv
+
+blogpostsRouter.post("/:bpId/upload", cloudinaryUploader, async (req, res, next) => {
+    try {
+        const blogposts = await getBlogposts()
+        const i = blogposts.findIndex(b => b._id === req.params.bpId)
+        if (i !== -1) {
+            console.log("FILE", req.file)
+            blogposts[i] = {...blogposts[i], cover: req.file.path}
+            await setBlogposts(blogposts)
+            res.send({message: `cover uploaded for ${req.params.bpId}`})
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
 
 blogpostsRouter.get("/:uuid/comments", async (req, res, next) => {
     try {
