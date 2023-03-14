@@ -31,8 +31,6 @@ blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
     try {
         const newBlogpost = new BlogpostsModel(req.body)
         const { _id } = await newBlogpost.save()
-        //await sendConfirmationEmail(newBlogpost, newBlogpost.author.email)
-
         res.status(201).send({ _id })
     } catch (error) {
         next(error)
@@ -42,7 +40,6 @@ blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
 blogpostsRouter.get("/", async (req, res, next) => {
     try {
         if (req.query && req.query.category) {
-            //const filtered = blogposts.filter(b => b.title.toLowerCase().includes(req.query.title.toLowerCase()))
             const filtered = await BlogpostsModel.find({category: req.query.category})
             res.send(filtered)
         } else {
@@ -101,7 +98,6 @@ blogpostsRouter.delete("/:bpId", async (req, res, next) => {
 blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.uuid}.pdf`)
-        const blogposts = await getBlogposts()
         const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
         if (foundBlogpost) {
             const source = await getPDFBlogpost(foundBlogpost)
