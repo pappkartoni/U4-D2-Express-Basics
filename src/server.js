@@ -1,6 +1,7 @@
 import Express from "express"
 import authorsRouter from "./api/authors/index.js"
 import cors from "cors"
+import mongoose from "mongoose"
 import { join } from "path"
 import {badRequestHandler, unauthorizedHandler, notfoundHandler, genericErrorHandler} from "./errorHandlers.js"
 import blogpostsRouter from "./api/blogposts/index.js"
@@ -33,6 +34,12 @@ server.use(unauthorizedHandler)
 server.use(notfoundHandler)
 server.use(genericErrorHandler)
 
-server.listen(port, () => {
-    console.log(`Server started on Port ${port}.`)
+mongoose.connect(process.env.MONGO_URL)
+
+mongoose.connection.on("connected", () => {
+    console.log("Connected to MongoDB")
+    server.listen(port, () => {
+        console.log(`Server started on Port ${port}.`)
+    })
+
 })

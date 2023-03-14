@@ -12,6 +12,7 @@ import { getBlogposts, setBlogposts, saveBlogpostImage, getAuthorsJSONReadableSt
 import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
 import { Transform } from "@json2csv/node";
+import BlogpostsModel from "./model.js"
 
 
 
@@ -26,15 +27,13 @@ const cloudinaryUploader = multer({
     }),
 }).single("cover")
 
-blogpostsRouter.post("/", checkBlogpostSchema, triggerBadRequest, async (req, res, next) => {
+blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
     try {
-        const newBlogpost = {...req.body, uuid: uuidv4(), createdAt: new Date(), updatedAt: new Date()}
-        const blogposts = await getBlogposts()
-        blogposts.push(newBlogpost)
-        await setBlogposts(blogposts)
-        await sendConfirmationEmail(newBlogpost, newBlogpost.author.email)
+        const newBlogpost = new BlogpostsModel(req.body)
+        const { _id } = await newBlogpost.save()
+        //await sendConfirmationEmail(newBlogpost, newBlogpost.author.email)
 
-        res.status(201).send({uuid: newBlogpost.uuid})
+        res.status(201).send({ _id })
     } catch (error) {
         next(error)
     }
@@ -42,10 +41,10 @@ blogpostsRouter.post("/", checkBlogpostSchema, triggerBadRequest, async (req, re
 
 blogpostsRouter.get("/", async (req, res, next) => {
     try {
-        const blogposts = await getBlogposts()
+        const blogposts = await BlogpostsModel.find()
         if (req.query && req.query.title) {
-            const filtered = blogposts.filter(b => b.title.toLowerCase().includes(req.query.title.toLowerCase()))
-            res.send(filtered)
+            //const filtered = blogposts.filter(b => b.title.toLowerCase().includes(req.query.title.toLowerCase()))
+            res.send(blogposts)
         } else {
             res.send(blogposts)
         }
@@ -54,10 +53,9 @@ blogpostsRouter.get("/", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.get("/:uuid", async (req, res, next) => {
+blogpostsRouter.get("/:bpId", async (req, res, next) => {
     try {
-        const blogposts = await getBlogposts()
-        const foundBlogpost = blogposts.find(b => b.uuid === req.params.uuid)
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
         if (foundBlogpost) {
             res.send(foundBlogpost)
         } else {
@@ -68,15 +66,16 @@ blogpostsRouter.get("/:uuid", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.put("/:uuid", checkBlogpostSchema, triggerBadRequest, async (req, res, next) => {
+blogpostsRouter.put("/:bpId", triggerBadRequest, async (req, res, next) => {
     try {
-        const blogposts = await getBlogposts()
-        const i = blogposts.findIndex(b => b.uuid === req.params.uuid)
-        if (i !== -1) {
-            const updated = {...blogposts[i], ...req.body, updatedAt: new Date()}
-            blogposts[i] = updated
-            await setBlogposts(blogposts)
-            res.send(updated)
+        const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
+            req.params.bpId,
+            req.body,
+            {new: true, runValidators: true}
+        )
+
+        if (updatedBlogpost) {
+            res.send(updatedBlogpost)
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
         }
@@ -85,12 +84,10 @@ blogpostsRouter.put("/:uuid", checkBlogpostSchema, triggerBadRequest, async (req
     }
 })
 
-blogpostsRouter.delete("/:uuid", async (req, res, next) => {
+blogpostsRouter.delete("/:bpId", async (req, res, next) => {
     try {
-        const blogposts = await getBlogposts()
-        const remaining = blogposts.filter(b => b.uuid !== req.params.uuid)
-        if (blogposts.length !== remaining.length) {
-            await setBlogposts(remaining)
+        const deletedBlogpost = await BlogpostsModel.findByIdAndDelete(req.params.bpId)
+        if (deletedBlogpost) {
             res.status(204).send()
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.uuid}`))
@@ -99,6 +96,8 @@ blogpostsRouter.delete("/:uuid", async (req, res, next) => {
         next(error)
     }
 })
+
+// this is not working yet
 
 blogpostsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) => {
     try {
