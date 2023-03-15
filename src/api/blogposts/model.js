@@ -23,12 +23,12 @@ const blogpostSchema = new Schema(
                 type: String,
                 required: true,
                 validate: {
-                  validator: function (unit) {
+                    validator: function (unit) {
                     return ["seconds", "minutes", "hours"].includes(unit);
-                  },
-                  message: "Unit must be one of 'seconds', 'minutes', or 'hours'",
+                    },
+                    message: "Unit must be one of 'seconds', 'minutes', or 'hours'",
                 },
-              },
+            },
         },
         author: {
             name: {type: String},
@@ -36,7 +36,7 @@ const blogpostSchema = new Schema(
             email: {type: String, required: true}
         },
         content: { type: String, required: true},
-        comments: { default: [], type: [commentSchema] },
+        comments: { default: [], type: [commentSchema] }, // comments: [commentSchema] <- without [] initially
     },
     {
         timestamps: true
