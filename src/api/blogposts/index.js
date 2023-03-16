@@ -248,7 +248,7 @@ blogpostsRouter.put("/:bpId/like", async (req, res, next) => {
         if (foundBlogpost) {
             const isLiked = foundBlogpost.likes.includes(req.body._id)
             if (isLiked) {
-                foundBlogpost.likes.pop(req.body._id)
+                foundBlogpost.likes = foundBlogpost.likes.filter(id => id.toString() !== req.body._id)
             } else {
                 foundBlogpost.likes.push(req.body._id)
             }
