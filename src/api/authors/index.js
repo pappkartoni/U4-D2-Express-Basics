@@ -1,16 +1,16 @@
 import Express from "express";
-import fs from "fs"
-import {fileURLToPath} from "url"
-import {dirname, extname, join} from "path"
 import {v4 as uuidv4} from "uuid"
 import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
-import multer from "multer"
+import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
-import { checkAuthorSchema, triggerBadRequest } from "../validate.js"
-import { getAuthors, getAuthorsJSONReadableStream, saveAuthorImage, setAuthors } from "../../lib/tools.js"
-import { Transform } from "@json2csv/node";
+import { triggerBadRequest } from "../validate.js"
+import { getAuthorsJSONReadableStream } from "../../lib/tools.js";
+import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
+import {AuthorsModel} from "../models.js"
+import q2m from "query-to-mongo"
+
 
 const authorsRouter = Express.Router()
 
@@ -23,81 +23,104 @@ const cloudinaryUploader = multer({
     }),
 }).single("avatar")
 
-authorsRouter.post("/", checkAuthorSchema, triggerBadRequest, async (req, res, next) => {
+authorsRouter.post("/", triggerBadRequest, async (req, res, next) => {
     try {
-        const newAuthor = {...req.body, uuid: uuidv4()}
-        const authors = await getAuthors()
-        const unavailable = authors.some(a => a.email === req.body.email)
-        if (!unavailable) {
-            authors.push(newAuthor)
-            await setAuthors(authors)
-
-            res.status(201).send({name: newAuthor.name + " " + newAuthor.surname, avatar: newAuthor.avatar, uuid: newAuthor.uuid})
-        } else {
-            next(createHttpError(400, `Email ${req.body.email} is already in use`))
-        }
+        const newAuthor = new AuthorsModel(req.body)
+        const { _id } = await newAuthor.save()
+        res.status(201).send({ _id })
     } catch (error) {
         next(error)
     }
-
 })
+
+// -------------------- Base Author Calls --------------------
 
 authorsRouter.get("/", async (req, res, next) => {
     try {
-        const authors = await getAuthors()
-        res.send(authors)
+        const q = q2m(req.query)
+        const authors = await AuthorsModel.find(q.criteria, q.options.fields)
+            .limit(q.options.limit)
+            .skip(q.options.skip)
+            .sort(q.options.sort)
+        const total = await AuthorsModel.countDocuments(q.criteria)
+
+        res.send({
+            links: q.links(process.env.BE_URL + "/authors", total),
+            total,
+            numberOfPages: Math.ceil(total / q.options.limit),
+            authors
+        })
     } catch (error) {
         next(error)
     }
 })
 
-authorsRouter.get("/:uuid", async (req, res, next) => {
+authorsRouter.get("/:authorId", async (req, res, next) => {
     try {
-        const authors = await getAuthors()
-        const foundAuthor = authors.find(a => a.uuid === req.params.uuid)
+        const foundAuthor = await AuthorsModel.findById(req.params.authorId)
         if (foundAuthor) {
             res.send(foundAuthor)
         } else {
-            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+            next(createHttpError(404, `No author with id ${req.params.authorId}`))
         }
-        
     } catch (error) {
         next(error)
     }
 })
 
-authorsRouter.put("/:uuid", checkAuthorSchema, triggerBadRequest, async (req, res, next) => {
+authorsRouter.put("/:authorId", async (req, res, next) => {
     try {
-        const authors = await getAuthors()
-        const i = authors.findIndex(a => a.uuid === req.params.uuid)
-        if (i !== -1) {
-            const updated = {...authors[i], ...req.body}
-            authors[i] = updated
-            await setAuthors(authors)
-            res.send(updated)
+        const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
+            req.params.authorId,
+            req.body,
+            {new: true, runValidators: true}
+        )
+
+        if (updatedAuthor) {
+            res.send(updatedAuthor)
         } else {
-            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+            next(createHttpError(404, `No author with id ${req.params.authorId}`))
         }
     } catch (error) {
         next(error)
     }
 })
 
-authorsRouter.delete("/:uuid", async (req, res, next) => {
+authorsRouter.delete("/:authorId", async (req, res, next) => {
     try {
-        const authors = await getAuthors()
-        const remaining = authors.filter(a => a.uuid !== req.params.uuid)
-        if (authors.length !== remaining.length) {
+        const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorId)
+        if (deletedAuthor) {
             res.status(204).send()
         } else {
-            next(createHttpError(404, `No author with id ${req.body.uuid}`))
+            next(createHttpError(404, `No author with id ${req.params.authorId}`))
         }
     } catch (error) {
         next(error)
     }
 })
 
-authorsRouter.post("/checkEmail", async (req, res, next) => {
+// -------------------- Image Upload --------------------
+
+authorsRouter.post("/:authorId/upload", cloudinaryUploader, async (req, res, next) => {
+    try {
+        const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
+            req.params.authorId,
+            {avatar: req.file.path},
+            {new: true, runValidators: true}
+        )
+        if (updatedAuthor) {
+            res.send(updatedAuthor)
+        } else {
+            next(createHttpError(404, `No author with id ${req.params.authorId}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+// Not yet reimplemented due to lack of purpose
+
+/* authorsRouter.post("/checkEmail", async (req, res, next) => {
     try {
         const authors = await getAuthors()
         if (req.body && req.body.email) {
@@ -112,26 +135,9 @@ authorsRouter.post("/checkEmail", async (req, res, next) => {
     const authors = JSON.parse(fs.readFileSync(authorsPath))
     const unavailable = authors.some(a => a.email === req.body.email)
     res.send({unavailable: unavailable})
-})
+}) */
 
-authorsRouter.post("/:uuid/upload", cloudinaryUploader, async (req, res, next) => {
-    try {
-        const authors = await getAuthors()
-        const i = authors.findIndex(a => a.uuid === req.params.uuid)
-        if (i !== -1) {
-            authors[i] = {...authors[i], avatar: req.file.path}
-            await setAuthors(authors)
-            res.send({message: `avatar uploaded for ${req.params.uuid}`})
-        } else {
-            next(createHttpError(404, `No author with id ${req.params.uuid}`))
-        }
-    } catch (error) {
-        next(error)
-    }
-})
-
-
-authorsRouter.get("/csv/download", async (req, res, next) => {
+/* authorsRouter.get("/csv/download", async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=authors.csv`)
         const source = getAuthorsJSONReadableStream()
@@ -144,6 +150,6 @@ authorsRouter.get("/csv/download", async (req, res, next) => {
     } catch (error) {
         next(error)
     }
-})
+}) */
 
 export default authorsRouter

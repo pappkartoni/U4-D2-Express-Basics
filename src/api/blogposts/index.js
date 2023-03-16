@@ -8,7 +8,7 @@ import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../v
 import { getBlogposts, setBlogposts, saveBlogpostImage, getAuthorsJSONReadableStream, sendConfirmationEmail } from "../../lib/tools.js";
 import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
-import {BlogpostsModel, CommentsModel} from "./model.js"
+import {BlogpostsModel} from "../models.js"
 import q2m from "query-to-mongo"
 
 
@@ -23,6 +23,8 @@ const cloudinaryUploader = multer({
         },
     }),
 }).single("cover")
+
+// -------------------- Base Blogpost Calls --------------------
 
 blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
     try {
@@ -41,6 +43,7 @@ blogpostsRouter.get("/", async (req, res, next) => {
             .limit(q.options.limit)
             .skip(q.options.skip)
             .sort(q.options.sort)
+            .populate({path: "author", select: "name surname email avatar"})
         const total = await BlogpostsModel.countDocuments(q.criteria)
 
         res.send({
@@ -49,7 +52,6 @@ blogpostsRouter.get("/", async (req, res, next) => {
             numberOfPages: Math.ceil(total / q.options.limit),
             blogposts
         })
-        req.send(blogposts)
     } catch (error) {
         next(error)
     }
@@ -57,7 +59,7 @@ blogpostsRouter.get("/", async (req, res, next) => {
 
 blogpostsRouter.get("/:bpId", async (req, res, next) => {
     try {
-        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId).populate({path: "author", select: "name surname email avatar"})
         if (foundBlogpost) {
             res.send(foundBlogpost)
         } else {
@@ -99,6 +101,8 @@ blogpostsRouter.delete("/:bpId", async (req, res, next) => {
     }
 })
 
+// -------------------- Pdf & Image Upload --------------------
+
 blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.bpId}.pdf`)
@@ -118,17 +122,15 @@ blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     }
 })
 
-// vvvvvvv this is not working yet vvvvvvv
-
 blogpostsRouter.post("/:bpId/upload", cloudinaryUploader, async (req, res, next) => {
     try {
-        const blogposts = await getBlogposts()
-        const i = blogposts.findIndex(b => b._id === req.params.bpId)
-        if (i !== -1) {
-            console.log("FILE", req.file)
-            blogposts[i] = {...blogposts[i], cover: req.file.path}
-            await setBlogposts(blogposts)
-            res.send({message: `cover uploaded for ${req.params.bpId}`})
+        const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
+            req.params.bpId,
+            {cover: req.file.path},
+            {new: true, runValidators: true}
+        )
+        if (updatedBlogpost) {
+            res.send(updatedBlogpost)
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
@@ -137,7 +139,7 @@ blogpostsRouter.post("/:bpId/upload", cloudinaryUploader, async (req, res, next)
     }
 })
 
-// ^^^^^^^ fix this dude ^^^^^^^
+// -------------------- Comments --------------------
 
 blogpostsRouter.post("/:bpId/comments", async (req, res, next) => {
     try {
@@ -217,6 +219,41 @@ blogpostsRouter.delete("/:bpId/comments/:commentId", async (req, res, next) => {
         )
         if (updatedBlogpost) {
             res.status(204).send()
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+// -------------------- Likes --------------------
+
+blogpostsRouter.get("/:bpId/like", async (req, res, next) => {
+    try {
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
+        if (foundBlogpost) {
+            res.send(foundBlogpost.likes)
+        } else {
+            next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+blogpostsRouter.put("/:bpId/like", async (req, res, next) => {
+    try {
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
+        if (foundBlogpost) {
+            const isLiked = foundBlogpost.likes.includes(req.body._id)
+            if (isLiked) {
+                foundBlogpost.likes.pop(req.body._id)
+            } else {
+                foundBlogpost.likes.push(req.body._id)
+            }
+            foundBlogpost.save()
+            res.send(foundBlogpost)
         } else {
             next(createHttpError(404, `No blogpost with id ${req.params.bpId}`))
         }
