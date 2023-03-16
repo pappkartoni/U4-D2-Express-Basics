@@ -106,7 +106,7 @@ blogpostsRouter.delete("/:bpId", async (req, res, next) => {
 blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.bpId}.pdf`)
-        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId)
+        const foundBlogpost = await BlogpostsModel.findById(req.params.bpId).populate({path: "author", select: "name surname email avatar"})
         if (foundBlogpost) {
             const source = await getPDFBlogpost(foundBlogpost)
             const destination = res //why

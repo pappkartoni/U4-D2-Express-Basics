@@ -58,7 +58,7 @@ export const getPDFBlogpost = async bp => {
             body: [[{image: `data:image/jpeg;base64,${await imageToBase64(bp.author.avatar)}`,
             width: 30
             },
-            {text: bp.author.name}]],
+            {text: bp.author.name + " " + bp.author.surname}]],
         },
         layout: "noBorders",
         margin: [0, 10]
