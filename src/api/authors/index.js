@@ -21,7 +21,9 @@ const cloudinaryUploader = multer({
     }),
 }).single("avatar")
 
-authorsRouter.post("/", adminAuth, async (req, res, next) => {
+// -------------------- Base Author Calls --------------------
+
+authorsRouter.post("/", basicUserAuth, adminAuth, async (req, res, next) => {
     try {
         const newAuthor = new AuthorsModel(req.body)
         const { _id } = await newAuthor.save()
@@ -30,8 +32,6 @@ authorsRouter.post("/", adminAuth, async (req, res, next) => {
         next(error)
     }
 })
-
-// -------------------- Base Author Calls --------------------
 
 authorsRouter.get("/", async (req, res, next) => {
     try {
@@ -84,7 +84,7 @@ authorsRouter.put("/:authorId", basicUserAuth, async (req, res, next) => {
     }
 })
 
-authorsRouter.delete("/:authorId", adminAuth, async (req, res, next) => {
+authorsRouter.delete("/:authorId", basicUserAuth, async (req, res, next) => {
     try {
         const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorId)
         if (deletedAuthor) {
