@@ -22,7 +22,7 @@ authorSchema.pre("save", async function () {
     const newAuthorData = this
     if (newAuthorData.isModified("password")) {
         const plainPw = newAuthorData.password
-        const hash = await bcrypt.hash(plainPw, 11)
+        const hash = await bcrypt.hash(plainPw, 16)
         newAuthorData.password = hash
     }
 })
@@ -30,7 +30,7 @@ authorSchema.pre("findOneAndUpdate", async function () {
     const update = {...this.getUpdate()}
     if (update.password) {
         const plainPw = update.password
-        const hash = await bcrypt.hash(plainPw, 11)
+        const hash = await bcrypt.hash(plainPw, 16)
         console.log(hash)
         update.password = hash
         this.setUpdate(update)
