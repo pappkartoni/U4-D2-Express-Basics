@@ -43,8 +43,14 @@ export const basicUserAuth = async (req, res, next) => {
         const [email, password] = credentials.split(":")
         const author = await AuthorsModel.checkCredentials(email, password)
         if (author) {
-            const authorInQuestion = await AuthorsModel.findById(req.params.authorId)
-            if (authorInQuestion._id.toString() === author._id.toString() || author.role === "admin") {
+            if (req.params.authorId) {
+                const authorInQuestion = await AuthorsModel.findById(req.params.authorId)
+                if (authorInQuestion._id.toString() === author._id.toString() || author.role === "admin") {
+                    next()
+                } else {
+                    next(createHTTPError(401, "Unauthorized."))
+                }
+            } else {
                 next()
             }
         } else {
