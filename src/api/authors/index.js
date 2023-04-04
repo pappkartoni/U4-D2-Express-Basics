@@ -5,9 +5,7 @@ import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
 import { triggerBadRequest } from "../validate.js"
-import { getAuthorsJSONReadableStream } from "../../lib/tools.js";
-import { getPDFBlogpost } from "../../lib/tools.js";
-import { pipeline } from "stream";
+import { adminAuth, basicUserAuth } from "../../lib/tools.js";
 import {AuthorsModel} from "../models.js"
 import q2m from "query-to-mongo"
 
@@ -23,7 +21,7 @@ const cloudinaryUploader = multer({
     }),
 }).single("avatar")
 
-authorsRouter.post("/", triggerBadRequest, async (req, res, next) => {
+authorsRouter.post("/", adminAuth, async (req, res, next) => {
     try {
         const newAuthor = new AuthorsModel(req.body)
         const { _id } = await newAuthor.save()
@@ -68,7 +66,7 @@ authorsRouter.get("/:authorId", async (req, res, next) => {
     }
 })
 
-authorsRouter.put("/:authorId", async (req, res, next) => {
+authorsRouter.put("/:authorId", basicUserAuth, async (req, res, next) => {
     try {
         const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
             req.params.authorId,
@@ -86,7 +84,7 @@ authorsRouter.put("/:authorId", async (req, res, next) => {
     }
 })
 
-authorsRouter.delete("/:authorId", async (req, res, next) => {
+authorsRouter.delete("/:authorId", adminAuth, async (req, res, next) => {
     try {
         const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorId)
         if (deletedAuthor) {

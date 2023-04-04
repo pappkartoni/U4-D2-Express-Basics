@@ -8,6 +8,9 @@ import { createWriteStream } from "fs"
 import { promisify } from "util"
 import sgMail from "@sendgrid/mail"
 import { pipeline } from "stream"
+import atob from "atob"
+import createHTTPError from "http-errors"
+import {AuthorsModel, BlogpostsModel} from "../api/models.js"
 
 const { readJSON, writeJSON, writeFile, createReadStream } = fs
 
@@ -31,6 +34,58 @@ export const saveBlogpostImage = (fileName, fileContent) => writeFile(join(blogp
 
 export const getAuthorsJSONReadableStream = () => createReadStream(authorsPath)
 export const getPDFWritableStream = fileName => createWriteStream(join(folderPath, fileName))
+
+export const basicUserAuth = async (req, res, next) => {
+    if (!req.headers.authorization) {
+        next(createHTTPError(401, "No credentials provided."))
+    } else {
+        const credentials = atob(req.headers.authorization.replace("Basic ", ""))
+        const [email, password] = credentials.split(":")
+        const author = await AuthorsModel.checkCredentials(email, password)
+        if (author) {
+            const authorInQuestion = await AuthorsModel.findById(req.params.authorId)
+            if (authorInQuestion._id.toString() === author._id.toString() || author.role === "admin") {
+                next()
+            }
+        } else {
+            next(createHTTPError(401, "Unauthorized."))
+        }
+    }
+}
+
+export const basicBlogpostAuth = async (req, res, next) => {
+    if (!req.headers.authorization) {
+        next(createHTTPError(401, "No credentials provided."))
+    } else {
+        const credentials = atob(req.headers.authorization.replace("Basic ", ""))
+        const [email, password] = credentials.split(":")
+        const author = await AuthorsModel.checkCredentials(email, password)
+        if (author) {
+            if (req.params.bpId) {
+                const blogpost = await BlogpostsModel.findById(req.params.bpId)
+                    if (blogpost.author.map(authorId => authorId.toString()).includes(author._id.toString())) {
+                        req.author = author
+                        next()
+                    } else {
+                        next(createHTTPError(401, "Unauthorized."))
+                    }
+            } else {
+                req.author = author
+                next()
+            }
+        } else {
+            next(createHTTPError(401, "Unauthorized."))
+        }
+    }
+}
+
+export const adminAuth = async (req, res, next) => {
+    if (req.role === "admin") {
+        next()
+    } else {
+        next(createHTTPError(403, "Admin only."))
+    }
+}
 
 export const getPDFBlogpost = async bp => {
     const fonts = {

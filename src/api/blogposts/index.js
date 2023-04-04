@@ -1,11 +1,10 @@
 import Express from "express";
-import {v4 as uuidv4} from "uuid"
 import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
-import { checkBlogpostSchema, checkCommentSchema, triggerBadRequest } from "../validate.js"
-import { getBlogposts, setBlogposts, saveBlogpostImage, getAuthorsJSONReadableStream, sendConfirmationEmail } from "../../lib/tools.js";
+import { checkCommentSchema, triggerBadRequest } from "../validate.js"
+import { basicBlogpostAuth, adminAuth } from "../../lib/tools.js";
 import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
 import {BlogpostsModel} from "../models.js"
@@ -26,9 +25,9 @@ const cloudinaryUploader = multer({
 
 // -------------------- Base Blogpost Calls --------------------
 
-blogpostsRouter.post("/", triggerBadRequest, async (req, res, next) => {
+blogpostsRouter.post("/", basicBlogpostAuth, async (req, res, next) => {
     try {
-        const newBlogpost = new BlogpostsModel(req.body)
+        const newBlogpost = new BlogpostsModel({...req.body, author: [req.author._id, ...req.body.author]})
         const { _id } = await newBlogpost.save()
         res.status(201).send({ _id })
     } catch (error) {
@@ -70,7 +69,7 @@ blogpostsRouter.get("/:bpId", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.put("/:bpId", triggerBadRequest, async (req, res, next) => {
+blogpostsRouter.put("/:bpId", basicBlogpostAuth, async (req, res, next) => {
     try {
         const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
             req.params.bpId,
@@ -88,7 +87,7 @@ blogpostsRouter.put("/:bpId", triggerBadRequest, async (req, res, next) => {
     }
 })
 
-blogpostsRouter.delete("/:bpId", async (req, res, next) => {
+blogpostsRouter.delete("/:bpId", basicBlogpostAuth, async (req, res, next) => {
     try {
         const deletedBlogpost = await BlogpostsModel.findByIdAndDelete(req.params.bpId)
         if (deletedBlogpost) {
@@ -101,9 +100,18 @@ blogpostsRouter.delete("/:bpId", async (req, res, next) => {
     }
 })
 
+blogpostsRouter.get("/me/stories", basicBlogpostAuth, async (req, res, next) => {
+    try {
+        const ownBlogposts = await BlogpostsModel.find({author: req.author._id})
+        res.send(ownBlogposts)
+    } catch (error) {
+        next(error)
+    }
+})
+
 // -------------------- Pdf & Image Upload --------------------
 
-blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
+blogpostsRouter.get("/:bpId/pdf", basicBlogpostAuth, async (req, res, next) => {
     try {
         res.setHeader("Content-Disposition", `attachment; filename=bp-${req.params.bpId}.pdf`)
         const foundBlogpost = await BlogpostsModel.findById(req.params.bpId).populate({path: "author", select: "name surname email avatar"})
@@ -122,7 +130,7 @@ blogpostsRouter.get("/:bpId/pdf", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.post("/:bpId/upload", cloudinaryUploader, async (req, res, next) => {
+blogpostsRouter.post("/:bpId/upload", basicBlogpostAuth, cloudinaryUploader, async (req, res, next) => {
     try {
         const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
             req.params.bpId,

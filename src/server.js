@@ -3,7 +3,7 @@ import authorsRouter from "./api/authors/index.js"
 import cors from "cors"
 import mongoose from "mongoose"
 import { join } from "path"
-import {badRequestHandler, unauthorizedHandler, notfoundHandler, genericErrorHandler} from "./errorHandlers.js"
+import {badRequestHandler, unauthorizedHandler, notfoundHandler, genericErrorHandler, forbiddenErrorHandler} from "./errorHandlers.js"
 import blogpostsRouter from "./api/blogposts/index.js"
 import createHttpError from "http-errors"
 
@@ -31,6 +31,7 @@ server.use("/blogposts", blogpostsRouter)
 
 server.use(badRequestHandler)
 server.use(unauthorizedHandler)
+server.use(forbiddenErrorHandler)
 server.use(notfoundHandler)
 server.use(genericErrorHandler)
 
