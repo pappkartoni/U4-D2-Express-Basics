@@ -76,7 +76,7 @@ export const adminAuth = async (req, res, next) => {
 
 
 export const selfOrAdminAuth = async (req, res, next) => {
-    if (req.role === "admin") {
+    if (req.author.role === "admin") {
         next()
     } else {
         const author = await AuthorsModel.findById(req.params.authorId)
@@ -105,6 +105,7 @@ export const ownerOrAdminBlogpostAuth = async (req, res, next) => {
     }
 }
 
+// obsolete now
 export const basicUserAuth = async (req, res, next) => {
     if (!req.headers.authorization) {
         next(createHttpError(401, "No credentials provided."))
@@ -128,7 +129,7 @@ export const basicUserAuth = async (req, res, next) => {
         }
     }
 }
-// TODO: Check admin first, doesn't matter if author then
+// this as well
 export const basicBlogpostAuth = async (req, res, next) => {
     if (!req.headers.authorization) {
         next(createHttpError(401, "No credentials provided."))
