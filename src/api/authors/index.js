@@ -1,11 +1,9 @@
 import Express from "express";
-import {v4 as uuidv4} from "uuid"
 import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
-import { triggerBadRequest } from "../validate.js"
-import { adminAuth, basicUserAuth } from "../../lib/tools.js";
+import { adminAuth, basicUserAuth, createAccessToken, jwtAuth, selfOrAdminAuth } from "../../lib/tools.js";
 import {AuthorsModel} from "../models.js"
 import q2m from "query-to-mongo"
 
@@ -23,7 +21,38 @@ const cloudinaryUploader = multer({
 
 // -------------------- Base Author Calls --------------------
 
-authorsRouter.post("/", basicUserAuth, adminAuth, async (req, res, next) => {
+authorsRouter.post("/register", async (req, res, next) => {
+    try {
+        const inUse = await AuthorsModel.find({email: req.body.email})
+        console.log(inUse)
+        if (inUse.length > 0) {
+            next(createHttpError(400, `Email address ${req.body.email} is already in use!`))
+        } else {
+            const newAuthor = new AuthorsModel(req.body)
+            const { _id } = await newAuthor.save()
+            res.status(201).send({ _id })
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.post("/login", async (req, res, next) => {
+    try {
+        console.log(req.body)
+        const user = await AuthorsModel.checkCredentials(req.body.email, req.body.password)
+        if (user) {
+            const accessToken = await createAccessToken({_id: user._id, role: user.role})
+            res.send({accessToken})
+        } else {
+            next(createHttpError(401, "Credentials beyond fucked."))
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.post("/", jwtAuth, adminAuth, async (req, res, next) => {
     try {
         const newAuthor = new AuthorsModel(req.body)
         const { _id } = await newAuthor.save()
@@ -53,7 +82,7 @@ authorsRouter.get("/", async (req, res, next) => {
     }
 })
 
-authorsRouter.get("/:authorId", async (req, res, next) => {
+authorsRouter.get("/:authorId", jwtAuth, async (req, res, next) => {
     try {
         const foundAuthor = await AuthorsModel.findById(req.params.authorId)
         if (foundAuthor) {
@@ -66,7 +95,7 @@ authorsRouter.get("/:authorId", async (req, res, next) => {
     }
 })
 
-authorsRouter.put("/:authorId", basicUserAuth, async (req, res, next) => {
+authorsRouter.put("/:authorId", jwtAuth, selfOrAdminAuth, async (req, res, next) => {
     try {
         const updatedAuthor = await AuthorsModel.findByIdAndUpdate(
             req.params.authorId,
@@ -84,7 +113,7 @@ authorsRouter.put("/:authorId", basicUserAuth, async (req, res, next) => {
     }
 })
 
-authorsRouter.delete("/:authorId", basicUserAuth, async (req, res, next) => {
+authorsRouter.delete("/:authorId", jwtAuth, selfOrAdminAuth, async (req, res, next) => {
     try {
         const deletedAuthor = await AuthorsModel.findByIdAndDelete(req.params.authorId)
         if (deletedAuthor) {

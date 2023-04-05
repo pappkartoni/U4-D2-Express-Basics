@@ -9,8 +9,8 @@ const authorSchema = new Schema(
         surname: {type: String, required: true},
         email: {type: String, required: true},
         password: {type: String, required: true},
-        dateOfBirth: {type: Date, required: true},
-        avatar: {type: String},
+        dateOfBirth: {type: Date},
+        avatar: {type: String, default: "https://avatars.githubusercontent.com/u/23081362?v=4"},
         role: {type: String, required: true, enum: ["admin", "author",], default: "author"}
     },
     {

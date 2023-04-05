@@ -4,7 +4,7 @@ import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
 import { checkCommentSchema, triggerBadRequest } from "../validate.js"
-import { basicBlogpostAuth, adminAuth } from "../../lib/tools.js";
+import { basicBlogpostAuth, adminAuth, jwtAuth, ownerOrAdminBlogpostAuth } from "../../lib/tools.js";
 import { getPDFBlogpost } from "../../lib/tools.js";
 import { pipeline } from "stream";
 import {BlogpostsModel} from "../models.js"
@@ -25,7 +25,7 @@ const cloudinaryUploader = multer({
 
 // -------------------- Base Blogpost Calls --------------------
 
-blogpostsRouter.post("/", basicBlogpostAuth, async (req, res, next) => {
+blogpostsRouter.post("/", jwtAuth, async (req, res, next) => {
     try {
         const newBlogpost = new BlogpostsModel({...req.body, author: [req.author._id, ...req.body.author]})
         const { _id } = await newBlogpost.save()
@@ -56,7 +56,7 @@ blogpostsRouter.get("/", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.get("/:bpId", async (req, res, next) => {
+blogpostsRouter.get("/:bpId", jwtAuth, ownerOrAdminBlogpostAuth, async (req, res, next) => {
     try {
         const foundBlogpost = await BlogpostsModel.findById(req.params.bpId).populate({path: "author", select: "name surname email avatar"})
         if (foundBlogpost) {
@@ -69,7 +69,7 @@ blogpostsRouter.get("/:bpId", async (req, res, next) => {
     }
 })
 
-blogpostsRouter.put("/:bpId", basicBlogpostAuth, async (req, res, next) => {
+blogpostsRouter.put("/:bpId", jwtAuth, ownerOrAdminBlogpostAuth, async (req, res, next) => {
     try {
         const updatedBlogpost = await BlogpostsModel.findByIdAndUpdate(
             req.params.bpId,
@@ -87,7 +87,7 @@ blogpostsRouter.put("/:bpId", basicBlogpostAuth, async (req, res, next) => {
     }
 })
 
-blogpostsRouter.delete("/:bpId", basicBlogpostAuth, async (req, res, next) => {
+blogpostsRouter.delete("/:bpId", jwtAuth, ownerOrAdminBlogpostAuth, async (req, res, next) => {
     try {
         const deletedBlogpost = await BlogpostsModel.findByIdAndDelete(req.params.bpId)
         if (deletedBlogpost) {
@@ -100,9 +100,9 @@ blogpostsRouter.delete("/:bpId", basicBlogpostAuth, async (req, res, next) => {
     }
 })
 
-blogpostsRouter.get("/me/stories", basicBlogpostAuth, async (req, res, next) => {
+blogpostsRouter.get("/me/stories", jwtAuth, async (req, res, next) => {
     try {
-        const ownBlogposts = await BlogpostsModel.find({author: req.author._id})
+        const ownBlogposts = await BlogpostsModel.find({author: req.author._id}).populate({path: "author", select: "name surname email avatar"})
         res.send(ownBlogposts)
     } catch (error) {
         next(error)

@@ -9,8 +9,9 @@ import { promisify } from "util"
 import sgMail from "@sendgrid/mail"
 import { pipeline } from "stream"
 import atob from "atob"
-import createHTTPError from "http-errors"
+import createHttpError from "http-errors"
 import {AuthorsModel, BlogpostsModel} from "../api/models.js"
+import jwt from "jsonwebtoken"
 
 const { readJSON, writeJSON, writeFile, createReadStream } = fs
 
@@ -35,9 +36,78 @@ export const saveBlogpostImage = (fileName, fileContent) => writeFile(join(blogp
 export const getAuthorsJSONReadableStream = () => createReadStream(authorsPath)
 export const getPDFWritableStream = fileName => createWriteStream(join(folderPath, fileName))
 
+export const createAccessToken = payload => {
+    return new Promise((resolve, reject) => jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: "1 week"}, (err, token) => {
+        if (err) reject(err)
+        else resolve(token)
+    }))
+}
+
+export const verifyAccessToken = token => {
+    return new Promise((resolve, reject) => jwt.verify(token, process.env.JWT_SECRET, {expiresIn: "1 week"}, (err, payload) => {
+        if (err) reject(err)
+        else resolve(payload)
+    }))
+}
+
+export const jwtAuth = async (req, res, next) => {
+    if (!req.headers.authorization) {
+        next(createHttpError(401, "No bearer token provided."))
+    } else {
+        const accessToken = req.headers.authorization.replace("Bearer ", "")
+        try {
+            const payload = await verifyAccessToken(accessToken)
+            req.author = {_id: payload._id, role: payload.role}
+            next()
+        } catch (error) {
+            console.log(error)
+            next(createHttpError(401, "Invalid token."))
+        }
+    }
+}
+
+export const adminAuth = async (req, res, next) => {
+    if (req.role === "admin") {
+        next()
+    } else {
+        next(createHttpError(403, "Admin only."))
+    }
+}
+
+
+export const selfOrAdminAuth = async (req, res, next) => {
+    if (req.role === "admin") {
+        next()
+    } else {
+        const author = await AuthorsModel.findById(req.params.authorId)
+        if (author) {
+            if (author._id.toString() === req.author._id.toString()) {
+                next()
+            } else {
+                next(createHttpError(401, "This not you jefe"))
+            }
+        } else {
+            next(createHttpError(404, "Not found."))
+        }
+    }
+}
+
+export const ownerOrAdminBlogpostAuth = async (req, res, next) => {
+    if (req.author.role === "admin") {
+        next()
+    } else {
+        const blogpost = await BlogpostsModel.findById(req.params.bpId)
+        if (blogpost.author.map(authorId => authorId.toString()).includes(req.author._id.toString())) {
+            next()
+        } else {
+            next(createHttpError(401, "Unauthorized."))
+        }
+    }
+}
+
 export const basicUserAuth = async (req, res, next) => {
     if (!req.headers.authorization) {
-        next(createHTTPError(401, "No credentials provided."))
+        next(createHttpError(401, "No credentials provided."))
     } else {
         const credentials = atob(req.headers.authorization.replace("Basic ", ""))
         const [email, password] = credentials.split(":")
@@ -48,20 +118,20 @@ export const basicUserAuth = async (req, res, next) => {
                 if (authorInQuestion._id.toString() === author._id.toString() || author.role === "admin") {
                     next()
                 } else {
-                    next(createHTTPError(401, "Unauthorized."))
+                    next(createHttpError(401, "Unauthorized."))
                 }
             } else {
                 next()
             }
         } else {
-            next(createHTTPError(401, "Unauthorized."))
+            next(createHttpError(401, "Unauthorized."))
         }
     }
 }
 // TODO: Check admin first, doesn't matter if author then
 export const basicBlogpostAuth = async (req, res, next) => {
     if (!req.headers.authorization) {
-        next(createHTTPError(401, "No credentials provided."))
+        next(createHttpError(401, "No credentials provided."))
     } else {
         const credentials = atob(req.headers.authorization.replace("Basic ", ""))
         const [email, password] = credentials.split(":")
@@ -73,23 +143,15 @@ export const basicBlogpostAuth = async (req, res, next) => {
                         req.author = author
                         next()
                     } else {
-                        next(createHTTPError(401, "Unauthorized."))
+                        next(createHttpError(401, "Unauthorized."))
                     }
             } else {
                 req.author = author
                 next()
             }
         } else {
-            next(createHTTPError(401, "Unauthorized."))
+            next(createHttpError(401, "Unauthorized."))
         }
-    }
-}
-
-export const adminAuth = async (req, res, next) => {
-    if (req.role === "admin") {
-        next()
-    } else {
-        next(createHTTPError(403, "Admin only."))
     }
 }
 
