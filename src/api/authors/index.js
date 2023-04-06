@@ -56,7 +56,7 @@ authorsRouter.post("/login", async (req, res, next) => {
     }
 })
 
-authorsRouter.get("/google", passport.authenticate("google", {scope: ["profile", "email"]}))
+authorsRouter.get("/google", passport.authenticate("google", {scope: ["profile", "email"], prompt: "consent"}))
 
 authorsRouter.get("/elgoog", passport.authenticate("google", {session: false}), (req, res, next) => {
     try {
