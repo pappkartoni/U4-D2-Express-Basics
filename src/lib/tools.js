@@ -12,6 +12,8 @@ import atob from "atob"
 import createHttpError from "http-errors"
 import {AuthorsModel, BlogpostsModel} from "../api/models.js"
 import jwt from "jsonwebtoken"
+import GoogleStrategy from "passport-google-oauth20"
+import { log } from "console"
 
 const { readJSON, writeJSON, writeFile, createReadStream } = fs
 
@@ -104,6 +106,36 @@ export const ownerOrAdminBlogpostAuth = async (req, res, next) => {
         }
     }
 }
+
+export const googleStrategy = new GoogleStrategy(
+    {
+        clientID: process.env.GOOGLE_ID,
+        clientSecret: process.env.GOOGLE_SECRET,
+        callbackURL: `${process.env.BE_URL}/authors/elgoog`,
+    },
+    async (_, __, profile, pnext) => {
+        try {
+            const { email, given_name, family_name, sub } = profile._json
+            const author = await AuthorsModel.findOne({email})
+            if (author) {
+                const accessToken = await createAccessToken({_id: author._id, role: author.role})
+               pnext(null, {accessToken})
+            } else {
+                const newAuthor = new AuthorsModel({
+                    name: given_name,
+                    surname: family_name,
+                    email: email,
+                    googleId:  sub
+                })
+                const created  = await newAuthor.save()
+                const accessToken = await createAccessToken({_id: created._id, role: created.role})
+                pnext(null, {accessToken})
+            }
+        } catch (error) {
+            pnext(error)
+        }
+    }
+)
 
 // obsolete now
 export const basicUserAuth = async (req, res, next) => {

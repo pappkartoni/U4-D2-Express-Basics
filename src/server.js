@@ -2,18 +2,19 @@ import Express from "express"
 import authorsRouter from "./api/authors/index.js"
 import cors from "cors"
 import mongoose from "mongoose"
-import { join } from "path"
+
 import {badRequestHandler, unauthorizedHandler, notfoundHandler, genericErrorHandler, forbiddenErrorHandler} from "./errorHandlers.js"
 import blogpostsRouter from "./api/blogposts/index.js"
 import createHttpError from "http-errors"
-
-const publicPath = join(process.cwd(), "./public")
+import passport from "passport"
+import { googleStrategy } from "./lib/tools.js"
 
 const server = Express()
 const port = process.env.PORT || 3420
 const whitelist = [process.env.FE_DEV_URL, process.env.FE_PROD_URL]
 
-server.use(Express.static(publicPath))
+passport.use("google", googleStrategy)
+
 server.use(cors({
     origin: (currentOrigin, corsNext) => {
         if (!currentOrigin || whitelist.indexOf(currentOrigin) !== -1) {
@@ -25,6 +26,7 @@ server.use(cors({
 }))
 
 server.use(Express.json())
+server.use(passport.initialize())
 
 server.use("/authors", authorsRouter)
 server.use("/blogposts", blogpostsRouter)

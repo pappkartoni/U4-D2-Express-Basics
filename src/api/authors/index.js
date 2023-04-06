@@ -3,10 +3,11 @@ import { v2 as cloudinary } from "cloudinary"
 import createHttpError from "http-errors"
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary"
-import { adminAuth, basicUserAuth, createAccessToken, jwtAuth, selfOrAdminAuth } from "../../lib/tools.js";
+import { adminAuth, createAccessToken, jwtAuth, selfOrAdminAuth } from "../../lib/tools.js";
 import {AuthorsModel} from "../models.js"
 import q2m from "query-to-mongo"
-
+import passport from "passport";
+import { check, validationResult } from "express-validator";
 
 const authorsRouter = Express.Router()
 
@@ -21,16 +22,20 @@ const cloudinaryUploader = multer({
 
 // -------------------- Base Author Calls --------------------
 
-authorsRouter.post("/register", async (req, res, next) => {
+authorsRouter.post("/register", check("password").isLength({min: 3}), async (req, res, next) => {
     try {
         const inUse = await AuthorsModel.find({email: req.body.email})
-        console.log(inUse)
         if (inUse.length > 0) {
             next(createHttpError(400, `Email address ${req.body.email} is already in use!`))
         } else {
-            const newAuthor = new AuthorsModel(req.body)
-            const { _id } = await newAuthor.save()
-            res.status(201).send({ _id })
+            const errors = validationResult(req)
+            if (!errors.isEmpty()) {
+                return res.status(422).json({ errors: errors.array() })
+            } else {
+                const newAuthor = new AuthorsModel(req.body)
+                const { _id } = await newAuthor.save()
+                res.status(201).send({ _id })
+            }
         }
     } catch (error) {
         next(error)
@@ -39,14 +44,23 @@ authorsRouter.post("/register", async (req, res, next) => {
 
 authorsRouter.post("/login", async (req, res, next) => {
     try {
-        console.log(req.body)
-        const user = await AuthorsModel.checkCredentials(req.body.email, req.body.password)
-        if (user) {
-            const accessToken = await createAccessToken({_id: user._id, role: user.role})
+        const author = await AuthorsModel.checkCredentials(req.body.email, req.body.password)
+        if (author) {
+            const accessToken = await createAccessToken({_id: author._id, role: author.role})
             res.send({accessToken})
         } else {
             next(createHttpError(401, "Credentials beyond fucked."))
         }
+    } catch (error) {
+        next(error)
+    }
+})
+
+authorsRouter.get("/google", passport.authenticate("google", {scope: ["profile", "email"]}))
+
+authorsRouter.get("/elgoog", passport.authenticate("google", {session: false}), (req, res, next) => {
+    try {
+        res.redirect(`${process.env.FE_DEV_URL}/home?accessToken=${req.user.accessToken}`)
     } catch (error) {
         next(error)
     }

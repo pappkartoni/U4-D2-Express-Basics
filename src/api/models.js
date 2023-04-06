@@ -8,10 +8,12 @@ const authorSchema = new Schema(
         name: {type: String, required: true},
         surname: {type: String, required: true},
         email: {type: String, required: true},
-        password: {type: String, required: true},
+        password: {type: String, required: false},
         dateOfBirth: {type: Date},
         avatar: {type: String, default: "https://avatars.githubusercontent.com/u/23081362?v=4"},
-        role: {type: String, required: true, enum: ["admin", "author",], default: "author"}
+        role: {type: String, required: true, enum: ["admin", "author",], default: "author"},
+        googleId: {type: String},
+        refreshToken: {type: String}
     },
     {
         timestamps: true
